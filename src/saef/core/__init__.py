@@ -1,0 +1,2 @@
+"""Componentes centrales de SAEF."""
+

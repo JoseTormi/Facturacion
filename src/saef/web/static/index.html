@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SAEF</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>SAEF</h1>
+        <p>Extractor mensual</p>
+      </div>
+    </header>
+
+    <main>
+      <section class="controls" aria-label="Extractor">
+        <label for="mes">Mes</label>
+        <input id="mes" type="month" />
+        <button id="ejecutar" type="button">Ejecutar</button>
+        <output id="estado" data-state="idle">Listo</output>
+      </section>
+
+      <section id="errores" class="errors" aria-live="polite"></section>
+
+      <section class="table-wrap">
+        <table id="resultados">
+          <thead>
+            <tr>
+              <th>Proveedor</th>
+              <th>Numero</th>
+              <th>Fecha</th>
+              <th>Valor</th>
+              <th>Estado</th>
+              <th>PDF</th>
+              <th>Periodo</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
+

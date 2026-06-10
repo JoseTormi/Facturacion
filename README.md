@@ -66,6 +66,47 @@ Rutas principales:
 
 La documentacion interactiva queda en `http://localhost:8000/docs`.
 
+## SAEF web
+
+SAEF es el nuevo esqueleto web para extraer y validar facturas mensuales de
+plataformas SaaS. En este primer paso incluye SQLite, frontend simple y un
+extractor de prueba para Gmail.
+
+Instala dependencias y levanta la web:
+
+```powershell
+pip install -r requirements.txt
+pip install -e .
+uvicorn saef.web.api:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Abre `http://localhost:8000`, selecciona el mes y ejecuta. El endpoint principal
+es:
+
+```http
+POST /ejecutar
+Content-Type: application/json
+
+{"mes": "2026-06"}
+```
+
+Para activar Gmail, copia `.env.example` a `.env`, configura las variables
+`SAEF_GMAIL_*` y sigue los comentarios en
+`src/saef/extractors/gmail_extractor.py` para generar el OAuth. Los PDFs se
+guardan en `storage/<mes>/<proveedor>/` y la base queda en `storage/saef.sqlite3`.
+
+Para generar el token OAuth desde tu propia terminal:
+
+```powershell
+python -m saef.gmail_auth
+```
+
+Si el navegador no abre automaticamente:
+
+```powershell
+python -m saef.gmail_auth --no-browser
+```
+
 ## Despliegue en Render
 
 El repo incluye `Dockerfile` y `render.yaml`. En Render, crea un **Blueprint**

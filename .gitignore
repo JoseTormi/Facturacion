@@ -13,3 +13,6 @@ data/output/*
 !data/output/.gitkeep
 data/logs/
 *.xlsx
+storage/*
+!storage/.gitkeep
+credentials/*.json
