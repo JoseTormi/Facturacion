@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: facturacion-api
+    env: docker
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /health

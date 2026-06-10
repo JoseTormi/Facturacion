@@ -49,6 +49,35 @@ facturas run-platform example
 
 El Excel se genera en `data/output/facturas.xlsx`.
 
+## API local
+
+Tambien puedes levantar la API HTTP:
+
+```powershell
+uvicorn invoice_automation.api:app --host 0.0.0.0 --port 8000
+```
+
+Rutas principales:
+
+- `GET /health`: estado del servicio.
+- `GET /platforms`: plataformas registradas.
+- `POST /extract`: recibe PDFs y devuelve JSON con los datos extraidos.
+- `POST /extract/excel`: recibe PDFs y devuelve `facturas.xlsx`.
+
+La documentacion interactiva queda en `http://localhost:8000/docs`.
+
+## Despliegue en Render
+
+El repo incluye `Dockerfile` y `render.yaml`. En Render, crea un **Blueprint**
+desde este repositorio:
+
+```text
+https://github.com/JoseTormi/Facturacion.git
+```
+
+Render construira la imagen Docker y publicara la API usando `/health` como
+health check.
+
 ## Flujo del sistema
 
 El diagrama tecnico del recorrido de datos esta en [`docs/flujo_sistema.md`](docs/flujo_sistema.md).
