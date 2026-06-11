@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -21,7 +22,7 @@ class Database:
         return connection
 
     def ensure_schema(self) -> None:
-        with self.connect() as connection:
+        with closing(self.connect()) as connection, connection:
             connection.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS proveedores (
@@ -56,11 +57,11 @@ class Database:
                     periodo TEXT NOT NULL,
                     creado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     actualizado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(proveedor, numero, periodo),
                     FOREIGN KEY(proveedor_id) REFERENCES proveedores(id)
                 );
                 """
             )
+            self._ensure_invoice_indexes(connection)
 
     def upsert_provider(
         self,
@@ -71,7 +72,7 @@ class Database:
         remitente: str | None = None,
         asunto: str | None = None,
     ) -> None:
-        with self.connect() as connection:
+        with closing(self.connect()) as connection, connection:
             connection.execute(
                 """
                 INSERT INTO proveedores (nombre, tipo, activo, remitente, asunto)
@@ -107,7 +108,7 @@ class Database:
         )
 
     def list_active_providers(self) -> list[Proveedor]:
-        with self.connect() as connection:
+        with closing(self.connect()) as connection, connection:
             rows = connection.execute(
                 """
                 SELECT id, nombre, tipo, activo, remitente, asunto
@@ -119,7 +120,7 @@ class Database:
         return [self._provider_from_row(row) for row in rows]
 
     def upsert_period(self, mes: str, estado: str) -> None:
-        with self.connect() as connection:
+        with closing(self.connect()) as connection, connection:
             connection.execute(
                 """
                 INSERT INTO periodos (mes, estado)
@@ -132,7 +133,7 @@ class Database:
             )
 
     def save_invoices(self, invoices: Iterable[FacturaExtraida]) -> None:
-        with self.connect() as connection:
+        with closing(self.connect()) as connection, connection:
             for invoice in invoices:
                 provider_id = self._provider_id(connection, invoice.proveedor)
                 connection.execute(
@@ -142,13 +143,14 @@ class Database:
                         estado, ruta_pdf, periodo
                     )
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(proveedor, numero, periodo) DO UPDATE SET
+                    ON CONFLICT(periodo, ruta_pdf) DO UPDATE SET
                         proveedor_id = excluded.proveedor_id,
+                        proveedor = excluded.proveedor,
+                        numero = excluded.numero,
                         fecha = excluded.fecha,
                         valor = excluded.valor,
                         moneda = excluded.moneda,
                         estado = excluded.estado,
-                        ruta_pdf = excluded.ruta_pdf,
                         actualizado_en = CURRENT_TIMESTAMP
                     """,
                     (
@@ -165,17 +167,86 @@ class Database:
                 )
 
     def list_invoices(self, mes: str) -> list[FacturaExtraida]:
-        with self.connect() as connection:
+        with closing(self.connect()) as connection, connection:
             rows = connection.execute(
                 """
                 SELECT proveedor, numero, fecha, valor, moneda, estado, ruta_pdf, periodo
                 FROM facturas
                 WHERE periodo = ?
-                ORDER BY proveedor, fecha, numero
+                ORDER BY proveedor, fecha, numero, ruta_pdf
                 """,
                 (mes,),
             ).fetchall()
         return [self._invoice_from_row(row) for row in rows]
+
+    def _ensure_invoice_indexes(self, connection: sqlite3.Connection) -> None:
+        table_row = connection.execute(
+            """
+            SELECT sql
+            FROM sqlite_master
+            WHERE type = 'table' AND name = 'facturas'
+            """
+        ).fetchone()
+        table_sql = table_row["sql"] if table_row else ""
+
+        if "UNIQUE(proveedor, numero, periodo)" in table_sql:
+            connection.executescript(
+                """
+                ALTER TABLE facturas RENAME TO facturas_old;
+
+                CREATE TABLE facturas (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    proveedor_id INTEGER,
+                    proveedor TEXT NOT NULL,
+                    numero TEXT,
+                    fecha TEXT,
+                    valor NUMERIC,
+                    moneda TEXT,
+                    estado TEXT NOT NULL,
+                    ruta_pdf TEXT,
+                    periodo TEXT NOT NULL,
+                    creado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    actualizado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(proveedor_id) REFERENCES proveedores(id)
+                );
+
+                INSERT INTO facturas (
+                    id, proveedor_id, proveedor, numero, fecha, valor, moneda,
+                    estado, ruta_pdf, periodo, creado_en, actualizado_en
+                )
+                SELECT
+                    id, proveedor_id, proveedor, numero, fecha, valor, moneda,
+                    estado, ruta_pdf, periodo, creado_en, actualizado_en
+                FROM facturas_old;
+
+                DROP TABLE facturas_old;
+                """
+            )
+
+        connection.execute(
+            """
+            DELETE FROM facturas
+            WHERE ruta_pdf IS NOT NULL
+              AND id NOT IN (
+                  SELECT MAX(id)
+                  FROM facturas
+                  WHERE ruta_pdf IS NOT NULL
+                  GROUP BY periodo, ruta_pdf
+              )
+            """
+        )
+        connection.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_facturas_periodo_ruta_pdf
+            ON facturas(periodo, ruta_pdf)
+            """
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_facturas_periodo
+            ON facturas(periodo)
+            """
+        )
 
     def _provider_id(self, connection: sqlite3.Connection, nombre: str) -> int | None:
         row = connection.execute(
@@ -205,4 +276,3 @@ class Database:
             ruta_pdf=Path(row["ruta_pdf"]) if row["ruta_pdf"] else None,
             periodo=row["periodo"],
         )
-

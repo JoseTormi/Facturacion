@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from saef.models import FacturaExtraida, Proveedor
+from saef.models import FacturaExtraida, PeriodoConsulta, Proveedor
 
 
 class Extractor(ABC):
@@ -10,6 +10,5 @@ class Extractor(ABC):
         self.proveedor = proveedor
 
     @abstractmethod
-    def extraer(self, periodo: str) -> list[FacturaExtraida]:
-        """Extrae facturas para un periodo YYYY-MM."""
-
+    def extraer(self, periodo: PeriodoConsulta) -> list[FacturaExtraida]:
+        """Extrae facturas para el rango de fechas indicado."""

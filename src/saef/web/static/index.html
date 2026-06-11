@@ -7,42 +7,120 @@
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
-    <header class="topbar">
-      <div>
-        <h1>SAEF</h1>
-        <p>Extractor mensual</p>
-      </div>
-    </header>
+    <canvas class="flow-canvas" id="flow-bg" aria-hidden="true"></canvas>
 
-    <main>
-      <section class="controls" aria-label="Extractor">
-        <label for="mes">Mes</label>
-        <input id="mes" type="month" />
-        <button id="ejecutar" type="button">Ejecutar</button>
-        <output id="estado" data-state="idle">Listo</output>
-      </section>
+    <div class="shell">
+      <aside class="brand-panel" aria-label="SAEF">
+        <div class="brand-lockup">
+          <div class="brand-mark">SF</div>
+          <div>
+            <h1>SAEF</h1>
+            <p>Extractor por periodo</p>
+          </div>
+        </div>
 
-      <section id="errores" class="errors" aria-live="polite"></section>
+        <div class="brand-copy">
+          <p class="eyebrow">Automatización financiera</p>
+          <h2>Facturas SaaS bajo control</h2>
+          <p>
+            Consulta Gmail por mes, año o rango exacto y consolida cada PDF
+            encontrado en una vista de validación.
+          </p>
+        </div>
 
-      <section class="table-wrap">
-        <table id="resultados">
-          <thead>
-            <tr>
-              <th>Proveedor</th>
-              <th>Numero</th>
-              <th>Fecha</th>
-              <th>Valor</th>
-              <th>Estado</th>
-              <th>PDF</th>
-              <th>Periodo</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </section>
-    </main>
+        <div class="signal-strip" aria-label="Estado de busqueda">
+          <span>Gmail</span>
+          <span>PDF</span>
+          <span>SQLite</span>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <section class="extractor-panel" aria-label="Extractor">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Búsqueda</p>
+              <h2>Selecciona el periodo</h2>
+            </div>
+            <output id="estado" data-state="idle">Listo</output>
+          </div>
+
+          <div class="controls">
+            <fieldset class="mode-toggle" aria-label="Tipo de periodo">
+              <label>
+                <input type="radio" name="modo-periodo" value="mes" checked />
+                <span>Mes</span>
+              </label>
+              <label>
+                <input type="radio" name="modo-periodo" value="anio" />
+                <span>Anual</span>
+              </label>
+              <label>
+                <input type="radio" name="modo-periodo" value="rango" />
+                <span>Rango</span>
+              </label>
+            </fieldset>
+
+            <div class="period-fields">
+              <label class="field" data-period-field="mes" for="mes">
+                Mes
+                <input id="mes" type="month" />
+              </label>
+              <label class="field" data-period-field="anio" for="anio" hidden>
+                Periodo anual
+                <input
+                  id="anio"
+                  type="number"
+                  min="1900"
+                  max="9998"
+                  step="1"
+                  inputmode="numeric"
+                />
+              </label>
+              <label class="field" data-period-field="rango" for="fecha-inicio" hidden>
+                Fecha inicial
+                <input id="fecha-inicio" type="date" />
+              </label>
+              <label class="field" data-period-field="rango" for="fecha-fin" hidden>
+                Fecha final
+                <input id="fecha-fin" type="date" />
+              </label>
+            </div>
+
+            <button id="ejecutar" type="button">Ejecutar búsqueda</button>
+          </div>
+        </section>
+
+        <section id="errores" class="errors" aria-live="polite"></section>
+
+        <section class="results-panel" aria-label="Facturas encontradas">
+          <div class="table-head">
+            <div>
+              <p class="eyebrow">Resultados</p>
+              <h2>Facturas encontradas</h2>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table id="resultados">
+              <thead>
+                <tr>
+                  <th>Proveedor</th>
+                  <th>Número</th>
+                  <th>Fecha</th>
+                  <th>Valor</th>
+                  <th>Estado</th>
+                  <th>PDF</th>
+                  <th>Periodo</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
 
     <script src="/static/app.js"></script>
   </body>
 </html>
-

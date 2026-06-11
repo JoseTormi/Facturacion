@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import re
 from datetime import date
 from pathlib import Path
@@ -9,7 +10,7 @@ from typing import Any
 from saef.config import Settings
 from saef.core.comparator import validar_factura
 from saef.extractors.base import Extractor
-from saef.models import FacturaExtraida, Proveedor
+from saef.models import FacturaExtraida, PeriodoConsulta, Proveedor
 
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
@@ -37,10 +38,9 @@ class GmailExtractor(Extractor):
         super().__init__(proveedor)
         self.settings = settings
 
-    def extraer(self, periodo: str) -> list[FacturaExtraida]:
-        start, end = month_bounds(periodo)
+    def extraer(self, periodo: PeriodoConsulta) -> list[FacturaExtraida]:
         service = self._gmail_service()
-        message_ids = self._search_messages(service, start, end)
+        message_ids = self._search_messages(service, periodo.inicio, periodo.fin_exclusivo)
         invoices: list[FacturaExtraida] = []
 
         for message_id in message_ids:
@@ -50,12 +50,22 @@ class GmailExtractor(Extractor):
                 .get(userId="me", id=message_id, format="full")
                 .execute()
             )
-            for part in pdf_attachment_parts(message.get("payload", {})):
+            for attachment_index, part in enumerate(
+                pdf_attachment_parts(message.get("payload", {})),
+                start=1,
+            ):
                 filename = safe_filename(part["filename"] or f"{message_id}.pdf")
                 content = self._attachment_bytes(service, message_id, part)
-                target = self._target_path(periodo, message_id, filename)
+                target = self._target_path(
+                    periodo=periodo.clave,
+                    message_id=message_id,
+                    attachment_key=part.get("attachment_id")
+                    or part.get("part_id")
+                    or str(attachment_index),
+                    filename=filename,
+                )
                 target.write_bytes(content)
-                invoices.append(self._invoice_from_pdf(target, periodo))
+                invoices.append(self._invoice_from_pdf(target, periodo.clave))
 
         return invoices
 
@@ -128,15 +138,22 @@ class GmailExtractor(Extractor):
         )
         return decode_gmail_data(attachment["data"])
 
-    def _target_path(self, periodo: str, message_id: str, filename: str) -> Path:
+    def _target_path(
+        self,
+        *,
+        periodo: str,
+        message_id: str,
+        attachment_key: str,
+        filename: str,
+    ) -> Path:
         provider_dir = slugify(self.proveedor.nombre)
         target_dir = self.settings.storage_dir / periodo / provider_dir
         target_dir.mkdir(parents=True, exist_ok=True)
 
-        target = target_dir / filename
-        if target.exists():
-            target = target_dir / f"{message_id}_{filename}"
-        return target
+        source_key = hashlib.sha1(f"{message_id}:{attachment_key}".encode("utf-8")).hexdigest()[
+            :16
+        ]
+        return target_dir / f"{safe_filename(message_id)}_{source_key}_{filename}"
 
     def _invoice_from_pdf(self, path: Path, periodo: str) -> FacturaExtraida:
         try:
@@ -162,16 +179,6 @@ class GmailExtractor(Extractor):
 
         invoice.estado = validar_factura(invoice)
         return invoice
-
-
-def month_bounds(periodo: str) -> tuple[date, date]:
-    year_text, month_text = periodo.split("-", maxsplit=1)
-    year = int(year_text)
-    month = int(month_text)
-    start = date(year, month, 1)
-    if month == 12:
-        return start, date(year + 1, 1, 1)
-    return start, date(year, month + 1, 1)
 
 
 def build_gmail_query(
@@ -208,6 +215,7 @@ def pdf_attachment_parts(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 {
                     "filename": filename,
                     "attachment_id": body.get("attachmentId"),
+                    "part_id": part.get("partId"),
                     "data": body.get("data"),
                 }
             )
