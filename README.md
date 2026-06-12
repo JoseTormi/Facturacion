@@ -92,11 +92,22 @@ Content-Type: application/json
 {"modo": "rango", "fecha_inicio": "2026-01-01", "fecha_fin": "2026-03-31"}
 ```
 
+La web requiere inicio de sesion. Configura en `.env`:
+
+```env
+SAEF_ADMIN_USERNAME=admin
+SAEF_ADMIN_PASSWORD=una-clave-segura
+SAEF_AUTH_SECRET_KEY=una-clave-larga-para-firmar-sesiones
+```
+
+En produccion con HTTPS, usa tambien `SAEF_AUTH_COOKIE_SECURE=true`.
+
 Para activar Gmail, copia `.env.example` a `.env`, configura las variables
 `SAEF_GMAIL_*` y sigue los comentarios en
 `src/saef/extractors/gmail_extractor.py` para generar el OAuth. Los PDFs se
 guardan en `storage/<periodo>/<proveedor>/` y la base queda en
-`storage/saef.sqlite3`.
+`storage/saef.sqlite3`. En la tabla de resultados, usa **Descargar PDF** para
+bajar una factura; la misma fila muestra la ruta local donde quedo guardada.
 
 Para generar el token OAuth desde tu propia terminal:
 

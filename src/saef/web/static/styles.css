@@ -118,6 +118,25 @@ body::before {
   margin-bottom: 72px;
 }
 
+.logout-form {
+  margin-left: auto;
+}
+
+.logout-form button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: none;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.78rem;
+}
+
+.logout-form button:hover {
+  background: rgba(210, 35, 42, 0.16);
+  box-shadow: none;
+}
+
 .brand-mark {
   display: grid;
   width: 48px;
@@ -438,6 +457,51 @@ button:disabled {
   overflow: hidden;
 }
 
+.login-shell {
+  grid-template-columns: minmax(320px, 0.9fr) minmax(380px, 0.7fr);
+}
+
+.login-workspace {
+  justify-content: center;
+  max-width: 560px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.login-card {
+  padding: 32px;
+}
+
+.login-head {
+  margin-bottom: 26px;
+}
+
+.login-form {
+  display: grid;
+  gap: 18px;
+}
+
+.login-form button {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.login-error {
+  margin-bottom: 18px;
+  border: 1px solid rgba(252, 165, 165, 0.24);
+  border-left: 4px solid var(--red);
+  border-radius: 12px;
+  background: rgba(210, 35, 42, 0.12);
+  color: var(--danger);
+  padding: 11px 13px;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.login-error[hidden] {
+  display: none;
+}
+
 .table-head {
   margin: 0;
   padding: 24px 26px 18px;
@@ -497,6 +561,41 @@ tr:hover td {
   padding: 2px 8px;
   font-size: 0.72rem;
   font-weight: 800;
+}
+
+.download-link {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  border: 1px solid rgba(74, 127, 212, 0.34);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: rgba(74, 127, 212, 0.12);
+  color: #dbeafe;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-decoration: none;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.download-link:hover {
+  border-color: rgba(210, 35, 42, 0.42);
+  background: rgba(210, 35, 42, 0.16);
+  transform: translateY(-1px);
+}
+
+.pdf-path,
+.pdf-missing {
+  display: block;
+  max-width: 360px;
+  margin-top: 7px;
+  color: var(--faint);
+  font-size: 0.74rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .empty {

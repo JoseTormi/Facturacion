@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     gmail_subject: str = ""
     gmail_active: bool = False
 
+    admin_username: str = "admin"
+    admin_password: str = "admin"
+    auth_secret_key: str = "cambia-esta-clave-en-produccion"
+    auth_session_minutes: int = 480
+    auth_cookie_secure: bool = False
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -29,4 +35,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-

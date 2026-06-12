@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ingresar - SAEF</title>
+    <link rel="stylesheet" href="/static/styles.css?v=20260612-secure-download" />
+  </head>
+  <body>
+    <canvas class="flow-canvas" id="flow-bg" aria-hidden="true"></canvas>
+
+    <div class="shell login-shell">
+      <aside class="brand-panel" aria-label="SAEF">
+        <div class="brand-lockup">
+          <div class="brand-mark">SF</div>
+          <div>
+            <h1>SAEF</h1>
+            <p>Acceso seguro</p>
+          </div>
+        </div>
+
+        <div class="brand-copy">
+          <p class="eyebrow">Control privado</p>
+          <h2>Ingresa para consultar facturas</h2>
+          <p>
+            Protege tus descargas, credenciales y resultados de búsqueda con
+            una sesión privada.
+          </p>
+        </div>
+      </aside>
+
+      <main class="workspace login-workspace">
+        <section class="extractor-panel login-card" aria-label="Inicio de sesion">
+          <div class="panel-head login-head">
+            <div>
+              <p class="eyebrow">Inicio</p>
+              <h2>Iniciar sesión</h2>
+            </div>
+          </div>
+
+          <div class="login-error" __ERROR_HIDDEN__>
+            Usuario o contraseña incorrectos.
+          </div>
+
+          <form class="login-form" action="/auth/login" method="post">
+            <input type="hidden" name="next" value="__NEXT__" />
+
+            <label class="field" for="username">
+              Usuario
+              <input
+                id="username"
+                name="username"
+                type="text"
+                autocomplete="username"
+                required
+                autofocus
+              />
+            </label>
+
+            <label class="field" for="password">
+              Contraseña
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                required
+              />
+            </label>
+
+            <button type="submit">Ingresar</button>
+          </form>
+        </section>
+      </main>
+    </div>
+
+    <script src="/static/app.js?v=20260612-secure-download"></script>
+  </body>
+</html>

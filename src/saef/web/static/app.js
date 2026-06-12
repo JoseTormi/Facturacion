@@ -9,50 +9,62 @@ const statusBox = document.querySelector("#estado");
 const errorBox = document.querySelector("#errores");
 const resultsBody = document.querySelector("#resultados tbody");
 const backgroundCanvas = document.querySelector("#flow-bg");
+const hasExtractor = Boolean(
+  monthInput &&
+    yearInput &&
+    startDateInput &&
+    endDateInput &&
+    runButton &&
+    statusBox &&
+    errorBox &&
+    resultsBody,
+);
 
-const now = new Date();
-const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-monthInput.value = currentMonth;
-yearInput.value = String(now.getFullYear());
-startDateInput.value = `${currentMonth}-01`;
-endDateInput.value = toDateInputValue(now);
+if (hasExtractor) {
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  monthInput.value = currentMonth;
+  yearInput.value = String(now.getFullYear());
+  startDateInput.value = `${currentMonth}-01`;
+  endDateInput.value = toDateInputValue(now);
 
-modeInputs.forEach((input) => {
-  input.addEventListener("change", updatePeriodFields);
-});
+  modeInputs.forEach((input) => {
+    input.addEventListener("change", updatePeriodFields);
+  });
 
-runButton.addEventListener("click", async () => {
-  const requestPayload = buildRequestPayload();
-  if (!requestPayload) {
-    return;
-  }
-
-  runButton.disabled = true;
-  setStatus("Ejecutando...", "info");
-  errorBox.innerHTML = "";
-  renderRows([]);
-
-  try {
-    const response = await fetch("/ejecutar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requestPayload),
-    });
-    const payload = await response.json();
-
-    if (!response.ok) {
-      throw new Error(formatApiError(payload.detail) || "No se pudo ejecutar el extractor.");
+  runButton.addEventListener("click", async () => {
+    const requestPayload = buildRequestPayload();
+    if (!requestPayload) {
+      return;
     }
 
-    setStatus(`${payload.estado} - ${payload.count} factura(s) procesada(s)`, "ok");
-    renderRows(payload.resultados || []);
-    renderErrors(payload.errores || []);
-  } catch (error) {
-    setStatus(error.message, "error");
-  } finally {
-    runButton.disabled = false;
-  }
-});
+    runButton.disabled = true;
+    setStatus("Ejecutando...", "info");
+    errorBox.innerHTML = "";
+    renderRows([]);
+
+    try {
+      const response = await fetch("/ejecutar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestPayload),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(formatApiError(payload.detail) || "No se pudo ejecutar el extractor.");
+      }
+
+      setStatus(`${payload.estado} - ${payload.count} factura(s) procesada(s)`, "ok");
+      renderRows(payload.resultados || []);
+      renderErrors(payload.errores || []);
+    } catch (error) {
+      setStatus(error.message, "error");
+    } finally {
+      runButton.disabled = false;
+    }
+  });
+}
 
 function selectedMode() {
   return modeInputs.find((input) => input.checked)?.value || "mes";
@@ -116,15 +128,28 @@ function renderRows(rows) {
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>${escapeHtml(item.proveedor || "")}</td>
+      <td>${renderPdfCell(item)}</td>
       <td>${escapeHtml(item.numero || "")}</td>
       <td>${escapeHtml(item.fecha || "")}</td>
       <td>${formatMoney(item.valor, item.moneda)}</td>
       <td><span class="status">${escapeHtml(item.estado || "")}</span></td>
-      <td>${escapeHtml(item.ruta_pdf || "")}</td>
       <td>${escapeHtml(item.periodo || "")}</td>
     `;
     resultsBody.appendChild(row);
   }
+}
+
+function renderPdfCell(item) {
+  if (!item.id || !item.ruta_pdf) {
+    return '<span class="pdf-missing">Sin PDF</span>';
+  }
+
+  return `
+    <a class="download-link" href="/facturas/${encodeURIComponent(item.id)}/pdf" download>
+      Descargar PDF
+    </a>
+    <span class="pdf-path">Guardada en: ${escapeHtml(item.ruta_pdf)}</span>
+  `;
 }
 
 function renderErrors(errors) {
@@ -328,5 +353,7 @@ function initInteractiveBackground() {
 }
 
 initInteractiveBackground();
-updatePeriodFields();
-renderRows([]);
+if (hasExtractor) {
+  updatePeriodFields();
+  renderRows([]);
+}

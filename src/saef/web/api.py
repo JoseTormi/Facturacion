@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import html
+from urllib.parse import quote
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, model_validator
 
@@ -14,6 +16,14 @@ from saef.config import settings
 from saef.core.database import Database
 from saef.extractors.registry import build_extractors
 from saef.models import FacturaExtraida, PeriodoConsulta
+from saef.web.auth import (
+    authenticated_username,
+    clear_session_cookie,
+    create_session_token,
+    require_authenticated_user,
+    set_session_cookie,
+    verify_credentials,
+)
 
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -57,13 +67,54 @@ app = FastAPI(
     version="0.1.0",
     description="Sistema web para extraer y validar facturas de SaaS por periodo.",
     lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.get("/", include_in_schema=False)
-def index() -> FileResponse:
+def index(request: Request):
+    if not authenticated_username(request):
+        return RedirectResponse("/login?next=/", status_code=303)
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/login", include_in_schema=False)
+def login(request: Request, next: str = "/"):
+    next_url = safe_next_url(next)
+    if authenticated_username(request):
+        return RedirectResponse(next_url, status_code=303)
+
+    login_html = (STATIC_DIR / "login.html").read_text(encoding="utf-8")
+    has_error = request.query_params.get("error") == "1"
+    login_html = login_html.replace("__NEXT__", html.escape(next_url, quote=True))
+    login_html = login_html.replace("__ERROR_HIDDEN__", "" if has_error else "hidden")
+    return HTMLResponse(login_html)
+
+
+@app.post("/auth/login", include_in_schema=False)
+async def auth_login(request: Request) -> RedirectResponse:
+    form = await request.form()
+    username = str(form.get("username") or "")
+    password = str(form.get("password") or "")
+    next_url = safe_next_url(str(form.get("next") or "/"))
+
+    if verify_credentials(username, password):
+        response = RedirectResponse(next_url, status_code=303)
+        set_session_cookie(response, create_session_token(username))
+        return response
+
+    encoded_next = quote(next_url, safe="/")
+    return RedirectResponse(f"/login?error=1&next={encoded_next}", status_code=303)
+
+
+@app.post("/logout", include_in_schema=False)
+def logout() -> RedirectResponse:
+    response = RedirectResponse("/login", status_code=303)
+    clear_session_cookie(response)
+    return response
 
 
 @app.get("/health")
@@ -72,14 +123,18 @@ def health() -> dict[str, str]:
 
 
 @app.get("/proveedores")
-def proveedores() -> dict[str, Any]:
+def proveedores(_: str = Depends(require_authenticated_user)) -> dict[str, Any]:
     bootstrap()
     active = database.list_active_providers()
     return {"count": len(active), "proveedores": [item.model_dump() for item in active]}
 
 
 @app.get("/resultados")
-def resultados(periodo: str | None = None, mes: str | None = None) -> dict[str, Any]:
+def resultados(
+    periodo: str | None = None,
+    mes: str | None = None,
+    _: str = Depends(require_authenticated_user),
+) -> dict[str, Any]:
     bootstrap()
     period_key = periodo or mes
     if not period_key:
@@ -93,11 +148,39 @@ def resultados(periodo: str | None = None, mes: str | None = None) -> dict[str, 
     }
 
 
+@app.get("/facturas/{factura_id}/pdf")
+def descargar_factura(
+    factura_id: int,
+    _: str = Depends(require_authenticated_user),
+) -> FileResponse:
+    bootstrap()
+    invoice = database.get_invoice(factura_id)
+    if not invoice or not invoice.ruta_pdf:
+        raise HTTPException(status_code=404, detail="Factura no encontrada.")
+
+    pdf_path = resolve_storage_path(invoice.ruta_pdf)
+    if not pdf_path.exists() or not pdf_path.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail=f"El PDF no existe en la ruta guardada: {invoice.ruta_pdf}",
+        )
+
+    return FileResponse(
+        pdf_path,
+        media_type="application/pdf",
+        filename=pdf_path.name,
+    )
+
+
 @app.post("/ejecutar")
-def ejecutar(payload: EjecutarRequest) -> dict[str, Any]:
+def ejecutar(
+    payload: EjecutarRequest,
+    _: str = Depends(require_authenticated_user),
+) -> dict[str, Any]:
     bootstrap()
     periodo = payload.to_periodo()
     database.upsert_period(periodo.clave, "en_proceso")
+    database.delete_invoices(periodo.clave)
 
     providers = database.list_active_providers()
     extractors = build_extractors(providers, settings)
@@ -152,6 +235,34 @@ def bootstrap() -> None:
 
 def invoice_payloads(invoices: list[FacturaExtraida]) -> list[dict[str, Any]]:
     return [invoice.model_dump(mode="json") for invoice in invoices]
+
+
+def safe_next_url(next_url: str) -> str:
+    if not next_url.startswith("/") or next_url.startswith("//"):
+        return "/"
+    if next_url.startswith("/auth/") or next_url.startswith("/static/"):
+        return "/"
+    return next_url
+
+
+def resolve_storage_path(path: Path) -> Path:
+    base_dir = Path.cwd()
+    storage_root = settings.storage_dir
+    if not storage_root.is_absolute():
+        storage_root = base_dir / storage_root
+
+    candidate = path
+    if not candidate.is_absolute():
+        candidate = base_dir / candidate
+
+    resolved_storage = storage_root.resolve()
+    resolved_candidate = candidate.resolve()
+    try:
+        resolved_candidate.relative_to(resolved_storage)
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail="Ruta de PDF no permitida.") from exc
+
+    return resolved_candidate
 
 
 def periodo_mes(mes: str) -> PeriodoConsulta:

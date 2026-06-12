@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -14,6 +15,64 @@ DATE_PATTERNS = [
     re.compile(r"(?P<day>\d{1,2})[/-](?P<month>\d{1,2})[/-](?P<year>\d{4})"),
     re.compile(r"(?P<year>\d{4})[/-](?P<month>\d{1,2})[/-](?P<day>\d{1,2})"),
 ]
+TEXT_DATE_PATTERNS = [
+    re.compile(
+        r"(?P<day>\d{1,2})\s+de\s+(?P<month_name>[a-zA-ZáéíóúÁÉÍÓÚñÑ]+)\s+de\s+(?P<year>\d{4})",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?P<day>\d{1,2})\s+(?P<month_name>[a-zA-ZáéíóúÁÉÍÓÚñÑ]{3,})\s+(?P<year>\d{4})",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?P<month_name>[a-zA-ZáéíóúÁÉÍÓÚñÑ]{3,})\s+(?P<day>\d{1,2}),?\s+(?P<year>\d{4})",
+        re.IGNORECASE,
+    ),
+]
+
+MONTH_NAMES = {
+    "ene": 1,
+    "enero": 1,
+    "jan": 1,
+    "january": 1,
+    "feb": 2,
+    "febrero": 2,
+    "february": 2,
+    "mar": 3,
+    "marzo": 3,
+    "march": 3,
+    "abr": 4,
+    "abril": 4,
+    "apr": 4,
+    "april": 4,
+    "may": 5,
+    "mayo": 5,
+    "jun": 6,
+    "junio": 6,
+    "june": 6,
+    "jul": 7,
+    "julio": 7,
+    "july": 7,
+    "ago": 8,
+    "agosto": 8,
+    "aug": 8,
+    "august": 8,
+    "sep": 9,
+    "sept": 9,
+    "septiembre": 9,
+    "setiembre": 9,
+    "september": 9,
+    "oct": 10,
+    "octubre": 10,
+    "october": 10,
+    "nov": 11,
+    "noviembre": 11,
+    "november": 11,
+    "dic": 12,
+    "diciembre": 12,
+    "dec": 12,
+    "december": 12,
+}
 
 
 def extract_invoice_from_pdf(path: Path, platform: str = "") -> Invoice:
@@ -79,6 +138,21 @@ def find_date(text: str) -> date | None:
             )
         except ValueError:
             continue
+    for pattern in TEXT_DATE_PATTERNS:
+        match = pattern.search(text)
+        if not match:
+            continue
+        month = month_number(match.group("month_name"))
+        if not month:
+            continue
+        try:
+            return date(
+                int(match.group("year")),
+                month,
+                int(match.group("day")),
+            )
+        except ValueError:
+            continue
     return None
 
 
@@ -105,6 +179,8 @@ def find_money_after_label(text: str, labels: list[str]) -> Decimal | None:
 
 def find_currency(text: str) -> str | None:
     upper = text.upper()
+    if "US$" in upper:
+        return "USD"
     for currency in ("COP", "USD", "EUR"):
         if currency in upper:
             return currency
@@ -123,6 +199,12 @@ def first_match(text: str, patterns: list[str]) -> str | None:
 
 def normalize_tax_id(value: str) -> str:
     return value.replace(".", "").strip()
+
+
+def month_number(value: str) -> int | None:
+    normalized = unicodedata.normalize("NFKD", value)
+    normalized = "".join(character for character in normalized if not unicodedata.combining(character))
+    return MONTH_NAMES.get(normalized.lower().rstrip("."))
 
 
 def parse_decimal(value: str) -> Decimal | None:

@@ -30,6 +30,7 @@ class Proveedor(BaseModel):
 
 
 class FacturaExtraida(BaseModel):
+    id: int | None = None
     proveedor: str
     numero: str | None = None
     fecha: date | None = None

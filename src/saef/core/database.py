@@ -166,11 +166,21 @@ class Database:
                     ),
                 )
 
+    def delete_invoices(self, periodo: str) -> None:
+        with closing(self.connect()) as connection, connection:
+            connection.execute(
+                """
+                DELETE FROM facturas
+                WHERE periodo = ?
+                """,
+                (periodo,),
+            )
+
     def list_invoices(self, mes: str) -> list[FacturaExtraida]:
         with closing(self.connect()) as connection, connection:
             rows = connection.execute(
                 """
-                SELECT proveedor, numero, fecha, valor, moneda, estado, ruta_pdf, periodo
+                SELECT id, proveedor, numero, fecha, valor, moneda, estado, ruta_pdf, periodo
                 FROM facturas
                 WHERE periodo = ?
                 ORDER BY proveedor, fecha, numero, ruta_pdf
@@ -178,6 +188,18 @@ class Database:
                 (mes,),
             ).fetchall()
         return [self._invoice_from_row(row) for row in rows]
+
+    def get_invoice(self, invoice_id: int) -> FacturaExtraida | None:
+        with closing(self.connect()) as connection, connection:
+            row = connection.execute(
+                """
+                SELECT id, proveedor, numero, fecha, valor, moneda, estado, ruta_pdf, periodo
+                FROM facturas
+                WHERE id = ?
+                """,
+                (invoice_id,),
+            ).fetchone()
+        return self._invoice_from_row(row) if row else None
 
     def _ensure_invoice_indexes(self, connection: sqlite3.Connection) -> None:
         table_row = connection.execute(
@@ -267,6 +289,7 @@ class Database:
 
     def _invoice_from_row(self, row: sqlite3.Row) -> FacturaExtraida:
         return FacturaExtraida(
+            id=row["id"] if "id" in row.keys() else None,
             proveedor=row["proveedor"],
             numero=row["numero"],
             fecha=date.fromisoformat(row["fecha"]) if row["fecha"] else None,

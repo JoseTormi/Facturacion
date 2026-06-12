@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>SAEF</title>
-    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260612-secure-download" />
   </head>
   <body>
     <canvas class="flow-canvas" id="flow-bg" aria-hidden="true"></canvas>
@@ -17,6 +17,9 @@
             <h1>SAEF</h1>
             <p>Extractor por periodo</p>
           </div>
+          <form class="logout-form" action="/logout" method="post">
+            <button type="submit">Salir</button>
+          </form>
         </div>
 
         <div class="brand-copy">
@@ -106,11 +109,11 @@
               <thead>
                 <tr>
                   <th>Proveedor</th>
+                  <th>PDF</th>
                   <th>Número</th>
                   <th>Fecha</th>
                   <th>Valor</th>
                   <th>Estado</th>
-                  <th>PDF</th>
                   <th>Periodo</th>
                 </tr>
               </thead>
@@ -121,6 +124,6 @@
       </main>
     </div>
 
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=20260612-secure-download"></script>
   </body>
 </html>
