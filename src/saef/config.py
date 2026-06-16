@@ -14,6 +14,14 @@ class Settings(BaseSettings):
     gmail_subject: str = ""
     gmail_active: bool = False
 
+    zoom_active: bool = False
+    zoom_provider_name: str = "Zoom"
+    zoom_start_url: str = "https://zoom.us/billing/report"
+    zoom_profile_dir: Path = Path("credentials/playwright/zoom")
+    zoom_download_wait_seconds: int = 240
+    zoom_download_idle_seconds: int = 12
+    zoom_headless: bool = True
+
     admin_username: str = "admin"
     admin_password: str = "admin"
     auth_secret_key: str = "cambia-esta-clave-en-produccion"
@@ -32,6 +40,7 @@ class Settings(BaseSettings):
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self.gmail_credentials_path.parent.mkdir(parents=True, exist_ok=True)
         self.gmail_token_path.parent.mkdir(parents=True, exist_ok=True)
+        self.zoom_profile_dir.mkdir(parents=True, exist_ok=True)
 
 
 settings = Settings()

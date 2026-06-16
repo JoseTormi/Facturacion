@@ -5,6 +5,7 @@ const yearInput = document.querySelector("#anio");
 const startDateInput = document.querySelector("#fecha-inicio");
 const endDateInput = document.querySelector("#fecha-fin");
 const runButton = document.querySelector("#ejecutar");
+const excelLink = document.querySelector("#descargar-excel");
 const statusBox = document.querySelector("#estado");
 const errorBox = document.querySelector("#errores");
 const resultsBody = document.querySelector("#resultados tbody");
@@ -17,7 +18,8 @@ const hasExtractor = Boolean(
     runButton &&
     statusBox &&
     errorBox &&
-    resultsBody,
+    resultsBody &&
+    excelLink,
 );
 
 if (hasExtractor) {
@@ -32,6 +34,12 @@ if (hasExtractor) {
     input.addEventListener("change", updatePeriodFields);
   });
 
+  excelLink.addEventListener("click", (event) => {
+    if (excelLink.classList.contains("is-disabled")) {
+      event.preventDefault();
+    }
+  });
+
   runButton.addEventListener("click", async () => {
     const requestPayload = buildRequestPayload();
     if (!requestPayload) {
@@ -39,6 +47,7 @@ if (hasExtractor) {
     }
 
     runButton.disabled = true;
+    updateExcelLink("", 0);
     setStatus("Ejecutando...", "info");
     errorBox.innerHTML = "";
     renderRows([]);
@@ -57,6 +66,7 @@ if (hasExtractor) {
 
       setStatus(`${payload.estado} - ${payload.count} factura(s) procesada(s)`, "ok");
       renderRows(payload.resultados || []);
+      updateExcelLink(payload.periodo || payload.mes || "", payload.resultados?.length || 0);
       renderErrors(payload.errores || []);
     } catch (error) {
       setStatus(error.message, "error");
@@ -64,6 +74,23 @@ if (hasExtractor) {
       runButton.disabled = false;
     }
   });
+}
+
+function updateExcelLink(period, count) {
+  if (!excelLink) {
+    return;
+  }
+
+  if (!period || !count) {
+    excelLink.href = "#";
+    excelLink.classList.add("is-disabled");
+    excelLink.setAttribute("aria-disabled", "true");
+    return;
+  }
+
+  excelLink.href = `/resultados/excel?periodo=${encodeURIComponent(period)}`;
+  excelLink.classList.remove("is-disabled");
+  excelLink.setAttribute("aria-disabled", "false");
 }
 
 function selectedMode() {
@@ -119,21 +146,26 @@ function renderRows(rows) {
 
   if (!rows.length) {
     const row = document.createElement("tr");
-    row.innerHTML = `<td colspan="7" class="empty">Sin resultados</td>`;
+    row.innerHTML = `<td colspan="11" class="empty">Sin resultados</td>`;
     resultsBody.appendChild(row);
     return;
   }
 
   for (const item of rows) {
     const row = document.createElement("tr");
+    const totalNeto = firstFilled(item.total_neto, item.valor);
     row.innerHTML = `
-      <td>${escapeHtml(item.proveedor || "")}</td>
-      <td>${renderPdfCell(item)}</td>
-      <td>${escapeHtml(item.numero || "")}</td>
       <td>${escapeHtml(item.fecha || "")}</td>
-      <td>${formatMoney(item.valor, item.moneda)}</td>
-      <td><span class="status">${escapeHtml(item.estado || "")}</span></td>
-      <td>${escapeHtml(item.periodo || "")}</td>
+      <td>${escapeHtml(item.nit_tercero || "")}</td>
+      <td>${escapeHtml(item.nombre_tercero || item.proveedor || "")}</td>
+      <td>${escapeHtml(item.numero || "")}</td>
+      <td class="description-cell">${escapeHtml(item.descripcion || "")}</td>
+      <td class="money">${formatMoney(item.valor_bruto, item.moneda)}</td>
+      <td class="money">${formatMoney(item.iva_19, item.moneda)}</td>
+      <td class="money">${formatMoney(item.iva_5, item.moneda)}</td>
+      <td class="money">${formatMoney(item.impo_8, item.moneda)}</td>
+      <td class="money">${formatMoney(totalNeto, item.moneda)}</td>
+      <td>${renderPdfCell(item)}</td>
     `;
     resultsBody.appendChild(row);
   }
@@ -176,6 +208,11 @@ function formatMoney(value, currency) {
     return escapeHtml(String(value));
   }
   return `${currency || ""} ${number.toLocaleString("es-CO")}`.trim();
+}
+
+function firstFilled(...values) {
+  const found = values.find((value) => value !== null && value !== undefined && value !== "");
+  return found === undefined ? "" : found;
 }
 
 function formatApiError(detail) {

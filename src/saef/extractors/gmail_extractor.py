@@ -12,7 +12,6 @@ from saef.core.comparator import validar_factura
 from saef.extractors.base import Extractor
 from saef.models import FacturaExtraida, PeriodoConsulta, Proveedor
 
-
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
 
@@ -150,7 +149,7 @@ class GmailExtractor(Extractor):
         target_dir = self.settings.storage_dir / periodo / provider_dir
         target_dir.mkdir(parents=True, exist_ok=True)
 
-        source_key = hashlib.sha1(f"{message_id}:{attachment_key}".encode("utf-8")).hexdigest()[
+        source_key = hashlib.sha1(f"{message_id}:{attachment_key}".encode()).hexdigest()[
             :16
         ]
         return target_dir / f"{safe_filename(message_id)}_{source_key}_{filename}"
@@ -164,7 +163,19 @@ class GmailExtractor(Extractor):
                 proveedor=self.proveedor.nombre,
                 numero=extracted.invoice_number or path.stem,
                 fecha=extracted.issue_date,
-                valor=extracted.total,
+                nit_tercero=extracted.issuer_tax_id,
+                nombre_tercero=extracted.issuer_name or self.proveedor.nombre,
+                descripcion=extracted.description,
+                valor_bruto=extracted.gross_value
+                if extracted.gross_value is not None
+                else extracted.subtotal,
+                iva_19=extracted.vat_19,
+                iva_5=extracted.vat_5,
+                impo_8=extracted.consumption_tax_8,
+                total_neto=extracted.net_total
+                if extracted.net_total is not None
+                else extracted.total,
+                valor=extracted.net_total if extracted.net_total is not None else extracted.total,
                 moneda=extracted.currency,
                 ruta_pdf=path,
                 periodo=periodo,

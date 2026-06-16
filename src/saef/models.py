@@ -34,6 +34,14 @@ class FacturaExtraida(BaseModel):
     proveedor: str
     numero: str | None = None
     fecha: date | None = None
+    nit_tercero: str | None = None
+    nombre_tercero: str | None = None
+    descripcion: str | None = None
+    valor_bruto: Decimal | None = None
+    iva_19: Decimal | None = None
+    iva_5: Decimal | None = None
+    impo_8: Decimal | None = None
+    total_neto: Decimal | None = None
     valor: Decimal | None = None
     moneda: str | None = None
     estado: str = "pendiente_validacion"

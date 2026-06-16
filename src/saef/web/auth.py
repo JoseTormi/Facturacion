@@ -12,7 +12,6 @@ from fastapi import HTTPException, Request, Response, status
 
 from saef.config import Settings, settings
 
-
 AUTH_COOKIE_NAME = "saef_session"
 
 

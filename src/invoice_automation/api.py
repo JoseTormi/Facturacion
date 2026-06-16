@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 from tempfile import NamedTemporaryFile, mkdtemp
+from typing import Annotated
 from uuid import uuid4
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
@@ -12,7 +13,6 @@ from invoice_automation.connectors.registry import CONNECTORS
 from invoice_automation.exporter import export_invoices_to_excel
 from invoice_automation.extractor import extract_invoice_from_pdf
 from invoice_automation.models import Invoice
-
 
 app = FastAPI(
     title="Facturacion API",
@@ -42,8 +42,8 @@ def list_platforms() -> dict[str, list[str]]:
 
 @app.post("/extract")
 async def extract_invoices(
-    files: list[UploadFile] = File(...),
-    platform: str = Form(""),
+    files: Annotated[list[UploadFile], File(...)],
+    platform: Annotated[str, Form()] = "",
 ) -> dict[str, object]:
     workdir = Path(mkdtemp(prefix="facturas_api_"))
     try:
@@ -59,8 +59,8 @@ async def extract_invoices(
 @app.post("/extract/excel")
 async def extract_excel(
     background_tasks: BackgroundTasks,
-    files: list[UploadFile] = File(...),
-    platform: str = Form(""),
+    files: Annotated[list[UploadFile], File(...)],
+    platform: Annotated[str, Form()] = "",
 ) -> FileResponse:
     workdir = Path(mkdtemp(prefix="facturas_api_"))
     output_file = NamedTemporaryFile(delete=False, suffix=".xlsx")

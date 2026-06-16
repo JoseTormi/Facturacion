@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import html
-from urllib.parse import quote
 from contextlib import asynccontextmanager
 from datetime import date
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import quote
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
+from openpyxl.utils import get_column_letter
 from pydantic import BaseModel, Field, model_validator
 
 from saef.config import settings
@@ -25,7 +29,6 @@ from saef.web.auth import (
     verify_credentials,
 )
 
-
 STATIC_DIR = Path(__file__).parent / "static"
 database = Database(settings.database_path)
 
@@ -38,7 +41,7 @@ class EjecutarRequest(BaseModel):
     fecha_fin: date | None = None
 
     @model_validator(mode="after")
-    def validate_periodo(self) -> "EjecutarRequest":
+    def validate_periodo(self) -> EjecutarRequest:
         self.to_periodo()
         return self
 
@@ -172,6 +175,23 @@ def descargar_factura(
     )
 
 
+@app.get("/resultados/excel")
+def descargar_resultados_excel(
+    periodo: str,
+    _: str = Depends(require_authenticated_user),
+) -> StreamingResponse:
+    bootstrap()
+    invoices = database.list_invoices(periodo)
+    workbook_stream = build_results_workbook(periodo, invoices)
+    filename = f"facturas_{safe_filename_fragment(periodo)}.xlsx"
+
+    return StreamingResponse(
+        workbook_stream,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @app.post("/ejecutar")
 def ejecutar(
     payload: EjecutarRequest,
@@ -231,10 +251,85 @@ def bootstrap() -> None:
         remitente=settings.gmail_sender,
         asunto=settings.gmail_subject,
     )
+    database.sync_zoom_provider_from_env(
+        nombre=settings.zoom_provider_name,
+        activo=settings.zoom_active,
+    )
 
 
 def invoice_payloads(invoices: list[FacturaExtraida]) -> list[dict[str, Any]]:
     return [invoice.model_dump(mode="json") for invoice in invoices]
+
+
+def build_results_workbook(periodo: str, invoices: list[FacturaExtraida]) -> BytesIO:
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Facturas"
+
+    headers = [
+        "FECHA",
+        "NIT TERCERO",
+        "NOMBRE TERCERO",
+        "NRO FACT",
+        "DESCRIPCION",
+        "VALOR BRUTO",
+        "IVA 19%",
+        "IVA 5%",
+        "IMPO 8%",
+        "TOTAL NETO",
+    ]
+    sheet.append(headers)
+
+    for invoice in invoices:
+        sheet.append(
+            [
+                invoice.fecha.isoformat() if invoice.fecha else "",
+                invoice.nit_tercero or "",
+                invoice.nombre_tercero or invoice.proveedor,
+                invoice.numero or "",
+                invoice.descripcion or "",
+                excel_decimal(invoice.valor_bruto),
+                excel_decimal(invoice.iva_19),
+                excel_decimal(invoice.iva_5),
+                excel_decimal(invoice.impo_8),
+                excel_decimal(
+                    invoice.total_neto if invoice.total_neto is not None else invoice.valor
+                ),
+            ]
+        )
+
+    header_fill = PatternFill("solid", fgColor="0B1930")
+    header_font = Font(color="FFFFFF", bold=True)
+    for cell in sheet[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+
+    sheet.freeze_panes = "A2"
+    sheet.auto_filter.ref = sheet.dimensions
+    for row in sheet.iter_rows(min_row=2, min_col=6, max_col=10):
+        for cell in row:
+            cell.number_format = '#,##0.00'
+    for column_cells in sheet.columns:
+        max_length = max(len(str(cell.value or "")) for cell in column_cells)
+        width = min(max(max_length + 2, 12), 70)
+        sheet.column_dimensions[get_column_letter(column_cells[0].column)].width = width
+
+    stream = BytesIO()
+    workbook.save(stream)
+    stream.seek(0)
+    return stream
+
+
+def excel_decimal(value: Any) -> float | str:
+    return float(value) if value is not None else ""
+
+
+def safe_filename_fragment(value: str) -> str:
+    cleaned = "".join(
+        character if character.isalnum() or character in "-_" else "_"
+        for character in value
+    )
+    return cleaned.strip("_") or "resultados"
 
 
 def safe_next_url(next_url: str) -> str:

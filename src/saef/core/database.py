@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterable
 from contextlib import closing
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
-from typing import Iterable
 
 from saef.models import FacturaExtraida, Proveedor
 
@@ -50,6 +50,14 @@ class Database:
                     proveedor TEXT NOT NULL,
                     numero TEXT,
                     fecha TEXT,
+                    nit_tercero TEXT,
+                    nombre_tercero TEXT,
+                    descripcion TEXT,
+                    valor_bruto NUMERIC,
+                    iva_19 NUMERIC,
+                    iva_5 NUMERIC,
+                    impo_8 NUMERIC,
+                    total_neto NUMERIC,
                     valor NUMERIC,
                     moneda TEXT,
                     estado TEXT NOT NULL,
@@ -107,6 +115,20 @@ class Database:
             asunto=asunto or None,
         )
 
+    def sync_zoom_provider_from_env(
+        self,
+        *,
+        nombre: str,
+        activo: bool,
+    ) -> None:
+        if not activo:
+            return
+        self.upsert_provider(
+            nombre=nombre,
+            tipo="zoom_web",
+            activo=True,
+        )
+
     def list_active_providers(self) -> list[Proveedor]:
         with closing(self.connect()) as connection, connection:
             rows = connection.execute(
@@ -139,15 +161,24 @@ class Database:
                 connection.execute(
                     """
                     INSERT INTO facturas (
-                        proveedor_id, proveedor, numero, fecha, valor, moneda,
-                        estado, ruta_pdf, periodo
+                        proveedor_id, proveedor, numero, fecha, nit_tercero,
+                        nombre_tercero, descripcion, valor_bruto, iva_19, iva_5,
+                        impo_8, total_neto, valor, moneda, estado, ruta_pdf, periodo
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(periodo, ruta_pdf) DO UPDATE SET
                         proveedor_id = excluded.proveedor_id,
                         proveedor = excluded.proveedor,
                         numero = excluded.numero,
                         fecha = excluded.fecha,
+                        nit_tercero = excluded.nit_tercero,
+                        nombre_tercero = excluded.nombre_tercero,
+                        descripcion = excluded.descripcion,
+                        valor_bruto = excluded.valor_bruto,
+                        iva_19 = excluded.iva_19,
+                        iva_5 = excluded.iva_5,
+                        impo_8 = excluded.impo_8,
+                        total_neto = excluded.total_neto,
                         valor = excluded.valor,
                         moneda = excluded.moneda,
                         estado = excluded.estado,
@@ -158,6 +189,14 @@ class Database:
                         invoice.proveedor,
                         invoice.numero,
                         invoice.fecha.isoformat() if invoice.fecha else None,
+                        invoice.nit_tercero,
+                        invoice.nombre_tercero,
+                        invoice.descripcion,
+                        str(invoice.valor_bruto) if invoice.valor_bruto is not None else None,
+                        str(invoice.iva_19) if invoice.iva_19 is not None else None,
+                        str(invoice.iva_5) if invoice.iva_5 is not None else None,
+                        str(invoice.impo_8) if invoice.impo_8 is not None else None,
+                        str(invoice.total_neto) if invoice.total_neto is not None else None,
                         str(invoice.valor) if invoice.valor is not None else None,
                         invoice.moneda,
                         invoice.estado,
@@ -180,7 +219,10 @@ class Database:
         with closing(self.connect()) as connection, connection:
             rows = connection.execute(
                 """
-                SELECT id, proveedor, numero, fecha, valor, moneda, estado, ruta_pdf, periodo
+                SELECT
+                    id, proveedor, numero, fecha, nit_tercero, nombre_tercero,
+                    descripcion, valor_bruto, iva_19, iva_5, impo_8, total_neto,
+                    valor, moneda, estado, ruta_pdf, periodo
                 FROM facturas
                 WHERE periodo = ?
                 ORDER BY proveedor, fecha, numero, ruta_pdf
@@ -193,7 +235,10 @@ class Database:
         with closing(self.connect()) as connection, connection:
             row = connection.execute(
                 """
-                SELECT id, proveedor, numero, fecha, valor, moneda, estado, ruta_pdf, periodo
+                SELECT
+                    id, proveedor, numero, fecha, nit_tercero, nombre_tercero,
+                    descripcion, valor_bruto, iva_19, iva_5, impo_8, total_neto,
+                    valor, moneda, estado, ruta_pdf, periodo
                 FROM facturas
                 WHERE id = ?
                 """,
@@ -222,6 +267,14 @@ class Database:
                     proveedor TEXT NOT NULL,
                     numero TEXT,
                     fecha TEXT,
+                    nit_tercero TEXT,
+                    nombre_tercero TEXT,
+                    descripcion TEXT,
+                    valor_bruto NUMERIC,
+                    iva_19 NUMERIC,
+                    iva_5 NUMERIC,
+                    impo_8 NUMERIC,
+                    total_neto NUMERIC,
                     valor NUMERIC,
                     moneda TEXT,
                     estado TEXT NOT NULL,
@@ -233,11 +286,14 @@ class Database:
                 );
 
                 INSERT INTO facturas (
-                    id, proveedor_id, proveedor, numero, fecha, valor, moneda,
-                    estado, ruta_pdf, periodo, creado_en, actualizado_en
+                    id, proveedor_id, proveedor, numero, fecha, nit_tercero,
+                    nombre_tercero, descripcion, valor_bruto, iva_19, iva_5,
+                    impo_8, total_neto, valor, moneda, estado, ruta_pdf, periodo,
+                    creado_en, actualizado_en
                 )
                 SELECT
-                    id, proveedor_id, proveedor, numero, fecha, valor, moneda,
+                    id, proveedor_id, proveedor, numero, fecha, NULL, proveedor,
+                    NULL, valor, NULL, NULL, NULL, valor, valor, moneda,
                     estado, ruta_pdf, periodo, creado_en, actualizado_en
                 FROM facturas_old;
 
@@ -245,6 +301,7 @@ class Database:
                 """
             )
 
+        self._ensure_invoice_columns(connection)
         connection.execute(
             """
             DELETE FROM facturas
@@ -267,6 +324,48 @@ class Database:
             """
             CREATE INDEX IF NOT EXISTS idx_facturas_periodo
             ON facturas(periodo)
+            """
+        )
+
+    def _ensure_invoice_columns(self, connection: sqlite3.Connection) -> None:
+        columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(facturas)").fetchall()
+        }
+        required_columns = {
+            "nit_tercero": "TEXT",
+            "nombre_tercero": "TEXT",
+            "descripcion": "TEXT",
+            "valor_bruto": "NUMERIC",
+            "iva_19": "NUMERIC",
+            "iva_5": "NUMERIC",
+            "impo_8": "NUMERIC",
+            "total_neto": "NUMERIC",
+        }
+
+        for column, definition in required_columns.items():
+            if column not in columns:
+                connection.execute(f"ALTER TABLE facturas ADD COLUMN {column} {definition}")
+
+        connection.execute(
+            """
+            UPDATE facturas
+            SET nombre_tercero = proveedor
+            WHERE nombre_tercero IS NULL OR nombre_tercero = ''
+            """
+        )
+        connection.execute(
+            """
+            UPDATE facturas
+            SET valor_bruto = valor
+            WHERE valor_bruto IS NULL AND valor IS NOT NULL
+            """
+        )
+        connection.execute(
+            """
+            UPDATE facturas
+            SET total_neto = valor
+            WHERE total_neto IS NULL AND valor IS NOT NULL
             """
         )
 
@@ -293,9 +392,22 @@ class Database:
             proveedor=row["proveedor"],
             numero=row["numero"],
             fecha=date.fromisoformat(row["fecha"]) if row["fecha"] else None,
-            valor=Decimal(str(row["valor"])) if row["valor"] is not None else None,
+            nit_tercero=row["nit_tercero"],
+            nombre_tercero=row["nombre_tercero"],
+            descripcion=row["descripcion"],
+            valor_bruto=decimal_from_row(row, "valor_bruto"),
+            iva_19=decimal_from_row(row, "iva_19"),
+            iva_5=decimal_from_row(row, "iva_5"),
+            impo_8=decimal_from_row(row, "impo_8"),
+            total_neto=decimal_from_row(row, "total_neto"),
+            valor=decimal_from_row(row, "valor"),
             moneda=row["moneda"],
             estado=row["estado"],
             ruta_pdf=Path(row["ruta_pdf"]) if row["ruta_pdf"] else None,
             periodo=row["periodo"],
         )
+
+
+def decimal_from_row(row: sqlite3.Row, column: str) -> Decimal | None:
+    value = row[column]
+    return Decimal(str(value)) if value is not None else None

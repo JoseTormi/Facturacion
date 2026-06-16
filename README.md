@@ -70,7 +70,7 @@ La documentacion interactiva queda en `http://localhost:8000/docs`.
 
 SAEF es el nuevo esqueleto web para extraer y validar facturas de plataformas
 SaaS por periodo. En este primer paso incluye SQLite, frontend simple y un
-extractor de prueba para Gmail.
+extractor para Gmail y portales web como Zoom.
 
 Instala dependencias y levanta la web:
 
@@ -108,6 +108,10 @@ Para activar Gmail, copia `.env.example` a `.env`, configura las variables
 guardan en `storage/<periodo>/<proveedor>/` y la base queda en
 `storage/saef.sqlite3`. En la tabla de resultados, usa **Descargar PDF** para
 bajar una factura; la misma fila muestra la ruta local donde quedo guardada.
+Tambien puedes usar **Descargar Excel** para bajar el listado completo del
+periodo consultado en formato `.xlsx`. El listado muestra y exporta estos
+campos: `FECHA`, `NIT TERCERO`, `NOMBRE TERCERO`, `NRO FACT`, `DESCRIPCION`,
+`VALOR BRUTO`, `IVA 19%`, `IVA 5%`, `IMPO 8%` y `TOTAL NETO`.
 
 Para generar el token OAuth desde tu propia terminal:
 
@@ -120,6 +124,30 @@ Si el navegador no abre automaticamente:
 ```powershell
 python -m saef.gmail_auth --no-browser
 ```
+
+### Zoom web
+
+Para sacar facturas desde una web autenticada como Zoom, activa el proveedor en
+`.env`:
+
+```env
+SAEF_ZOOM_ACTIVE=true
+SAEF_ZOOM_PROVIDER_NAME=Zoom
+SAEF_ZOOM_START_URL=https://zoom.us/billing/report
+SAEF_ZOOM_PROFILE_DIR=credentials/playwright/zoom
+SAEF_ZOOM_DOWNLOAD_WAIT_SECONDS=240
+SAEF_ZOOM_DOWNLOAD_IDLE_SECONDS=12
+SAEF_ZOOM_HEADLESS=true
+```
+
+Luego ejecuta la busqueda desde SAEF. Con una sesion de Zoom ya guardada, Chromium
+corre en segundo plano, entra a Payment History y descarga las facturas PDF del
+periodo elegido. Si la sesion expira, cambia temporalmente
+`SAEF_ZOOM_HEADLESS=false`, inicia sesion una vez y vuelve a dejarlo en `true`.
+
+Este modo no guarda usuario ni clave de Zoom en `.env`; la sesion queda en el
+perfil local `credentials/playwright/zoom`, que esta excluido de Git. Esta pensado
+para ejecucion local con perfil persistente de Chromium.
 
 ## Despliegue en Render
 

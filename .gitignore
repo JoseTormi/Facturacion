@@ -16,3 +16,4 @@ data/logs/
 storage/*
 !storage/.gitkeep
 credentials/*.json
+credentials/playwright/

@@ -13,8 +13,14 @@ class Invoice(BaseModel):
     issuer_tax_id: str | None = None
     customer_name: str | None = None
     customer_tax_id: str | None = None
+    description: str | None = None
+    gross_value: Decimal | None = None
     subtotal: Decimal | None = None
+    vat_19: Decimal | None = None
+    vat_5: Decimal | None = None
+    consumption_tax_8: Decimal | None = None
     tax: Decimal | None = None
+    net_total: Decimal | None = None
     total: Decimal | None = None
     currency: str | None = None
     source_file: Path
@@ -22,16 +28,24 @@ class Invoice(BaseModel):
 
     def to_excel_row(self) -> dict[str, object]:
         return {
-            "Plataforma": self.platform,
-            "Numero factura": self.invoice_number,
-            "Fecha emision": self.issue_date.isoformat() if self.issue_date else None,
-            "Emisor": self.issuer_name,
-            "NIT emisor": self.issuer_tax_id,
-            "Cliente": self.customer_name,
-            "NIT cliente": self.customer_tax_id,
-            "Subtotal": float(self.subtotal) if self.subtotal is not None else None,
-            "IVA/Impuestos": float(self.tax) if self.tax is not None else None,
-            "Total": float(self.total) if self.total is not None else None,
-            "Moneda": self.currency,
-            "Archivo origen": str(self.source_file),
+            "FECHA": self.issue_date.isoformat() if self.issue_date else None,
+            "NIT TERCERO": self.issuer_tax_id,
+            "NOMBRE TERCERO": self.issuer_name,
+            "NRO FACT": self.invoice_number,
+            "DESCRIPCION": self.description,
+            "VALOR BRUTO": decimal_to_float(
+                self.gross_value if self.gross_value is not None else self.subtotal
+            ),
+            "IVA 19%": float(self.vat_19) if self.vat_19 is not None else None,
+            "IVA 5%": float(self.vat_5) if self.vat_5 is not None else None,
+            "IMPO 8%": float(self.consumption_tax_8)
+            if self.consumption_tax_8 is not None
+            else None,
+            "TOTAL NETO": decimal_to_float(
+                self.net_total if self.net_total is not None else self.total
+            ),
         }
+
+
+def decimal_to_float(value: Decimal | None) -> float | None:
+    return float(value) if value is not None else None

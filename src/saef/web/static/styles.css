@@ -515,7 +515,7 @@ button:disabled {
 
 table {
   width: 100%;
-  min-width: 890px;
+  min-width: 1360px;
   border-collapse: separate;
   border-spacing: 0;
 }
@@ -548,6 +548,15 @@ td {
 
 tr:hover td {
   background: rgba(255, 255, 255, 0.035);
+}
+
+.description-cell {
+  max-width: 280px;
+  line-height: 1.45;
+}
+
+.money {
+  white-space: nowrap;
 }
 
 .status {
@@ -585,6 +594,39 @@ tr:hover td {
   border-color: rgba(210, 35, 42, 0.42);
   background: rgba(210, 35, 42, 0.16);
   transform: translateY(-1px);
+}
+
+.excel-link {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(134, 239, 172, 0.24);
+  border-radius: 10px;
+  padding: 0 14px;
+  background: rgba(22, 163, 74, 0.13);
+  color: #bbf7d0;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-decoration: none;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    opacity 0.18s ease,
+    transform 0.18s ease;
+  white-space: nowrap;
+}
+
+.excel-link:hover {
+  border-color: rgba(134, 239, 172, 0.42);
+  background: rgba(22, 163, 74, 0.2);
+  transform: translateY(-1px);
+}
+
+.excel-link.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+  transform: none;
 }
 
 .pdf-path,
@@ -684,6 +726,10 @@ tr:hover td {
     width: 100%;
     justify-content: center;
     white-space: normal;
+  }
+
+  .excel-link {
+    width: 100%;
   }
 
   .controls {

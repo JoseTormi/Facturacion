@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>SAEF</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20260612-secure-download" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260612-accounting-fields" />
   </head>
   <body>
     <canvas class="flow-canvas" id="flow-bg" aria-hidden="true"></canvas>
@@ -102,19 +102,31 @@
               <p class="eyebrow">Resultados</p>
               <h2>Facturas encontradas</h2>
             </div>
+            <a
+              id="descargar-excel"
+              class="excel-link is-disabled"
+              href="#"
+              aria-disabled="true"
+            >
+              Descargar Excel
+            </a>
           </div>
 
           <div class="table-wrap">
             <table id="resultados">
               <thead>
                 <tr>
-                  <th>Proveedor</th>
-                  <th>PDF</th>
-                  <th>Número</th>
                   <th>Fecha</th>
-                  <th>Valor</th>
-                  <th>Estado</th>
-                  <th>Periodo</th>
+                  <th>NIT tercero</th>
+                  <th>Nombre tercero</th>
+                  <th>Nro fact</th>
+                  <th>Descripcion</th>
+                  <th>Valor bruto</th>
+                  <th>IVA 19%</th>
+                  <th>IVA 5%</th>
+                  <th>IMPO 8%</th>
+                  <th>Total neto</th>
+                  <th>PDF</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -124,6 +136,6 @@
       </main>
     </div>
 
-    <script src="/static/app.js?v=20260612-secure-download"></script>
+    <script src="/static/app.js?v=20260612-accounting-fields"></script>
   </body>
 </html>
